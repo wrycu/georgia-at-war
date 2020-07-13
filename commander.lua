@@ -21,14 +21,12 @@ max_caps_for_player_count = function(players)
     end
     local caps = 0
 
-    if players < 9 then
+    if players < 5 then
+        caps = 2
+    elseif players >= 5 and players < 8 then
         caps = 4
-    elseif players >= 9 and players < 13 then
-        caps = 5
-    elseif players >= 13 and players < 18 then
+    elseif players >= 8 and players < 17 then
         caps = 6
-    elseif players >= 18 and players < 28 then
-        caps = 7
     else
         caps = 7
     end
@@ -305,7 +303,7 @@ constructSAMsNearBAIs = function(bai_stats, delay_time, utils)
     mist.scheduleFunction(function()
         log("Continuing BAI SAM construction.")
         game_stats.bai.constructing_sam = false
-        local spawner = SAMSpawns[math.random(#SAMSpawns)][1]
+        local spawner = SAMSpawns[math.random(#SAMSpawns)]
         local objTable, baiGroupName = randomchoice(game_state["BAI"])
         if not baiGroupName then
             log("Couldn't find a BAI to build near...")
