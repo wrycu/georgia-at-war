@@ -67,7 +67,7 @@ if statefile then
             else
                 trigger.action.markToAll(markerID, name.."\nCapture to provide weapons to Anapa", {x = apV3.x, z = apV3.z+20.0, y = apV3.y}, true)
             end
-            markerID = markerID + 1 
+            markerID = markerID + 1
 
             apV3.x = apV3.x + math.random(-25, 25)
             apV3.z = apV3.z + math.random(-25, 25)
@@ -160,12 +160,12 @@ if statefile then
     ---------------------------------------------------------------------------
 
     INIT_CTLD_UNITS = function(args, coords2D, _country, ctld_unitIndex, key)
-    --Spawns the CTLD unit at a given point using the ctld_config templates,  
+    --Spawns the CTLD unit at a given point using the ctld_config templates,
     --returning the unit object so that it can be tracked later.
     --
     --Inputs
     --  args : table
-    --    The ctld_config unit template to spawn. 
+    --    The ctld_config unit template to spawn.
     --    Ex. ctld_config.unit_config["M818 Transport"]
     --  coord2D : table {x,y}
     --    The location to spawn the unit at.
@@ -173,18 +173,18 @@ if statefile then
     --    The country ID that the spawned unit will belong to. Ex. 2='USA'
     --  cltd_unitIndex : table
     --    The table of unit indices to help keep track of unit IDs. This table
-    --    will be accessed by keys so that the indices are passed by reference 
+    --    will be accessed by keys so that the indices are passed by reference
     --    rather than by value.
     --  key : str
     --    The table entry of cltd_unitIndex that will be incremented after a
-    --    unit and group name are assigned. 
+    --    unit and group name are assigned.
     --    Ex. key = "Gepard_Index"
     --
     --Outputs
     --  Group_Object : obj
     --    A reference to the spawned group object so that it can be tracked.
 
-        local unitNumber = ctld_unitIndex[key]           
+        local unitNumber = ctld_unitIndex[key]
         local CTLD_Group = {
             ["visible"] = false,
             ["hidden"] = false,
@@ -406,10 +406,8 @@ mist.scheduleFunction(function()
     RussianTheaterCASSpawn:Spawn()
     log("Spawned CAS Groups...")
 end, {}, timer.getTime() + 10, 1000)
-mist.scheduleFunction(function()
-    RussianCarrierFlight:Spawn()
-    log("Spawned Carrier Groups...")
-end, {}, timer.getTime() + 10, 900)
+-- Spawn enemy carrier CAP
+mist.scheduleFunction(spawn_cap, {RussianCarrierFlight}, timer.getTime() + 10, 900)
 -- Kick off the commanders
 mist.scheduleFunction(russian_commander, {}, timer.getTime() + 10, 600)
 
