@@ -47,7 +47,9 @@ get_player_count = function()
     local bluePlanes = mist.makeUnitTable({'[blue][plane]'})
     local bluePlaneCount = 0
     for i,v in pairs(bluePlanes) do
-        if Unit.getByName(v) then bluePlaneCount = bluePlaneCount + 1 end
+        if (Unit.getByName(v) and Unit.getByName(v):getPlayerName()) then
+            bluePlaneCount = bluePlaneCount + 1
+        end
     end
     return bluePlaneCount
 end
@@ -143,17 +145,21 @@ calculate_utilities = function(stats)
     return utils
 end
 
-spawn_cap = function(spawn)
+spawn_cap = function(spawn, allow_randomize)
     local stats = GameStats:get()
+    local allow_randomize = allow_randomize or false
+    log("[DEBUG] Nominal CAP count for " .. tostring(get_player_count()) .. " players is " .. stats.caps.nominal)
     if stats.caps.alive >= stats.caps.nominal then
+        log("Russian Commander declined to spawn CAP because " .. stats.caps.alive .. " exceeds or meets the max value of " .. stats.caps.nominal)
         return
     end
-    if math.random() > 0.5 then
+    if (math.random() > 0.5 and allow_randomize) then
         -- Spawn them at a random zone instead of where they were going to be.
         local spawnZone = randomFromList(cap_spawn_zones)
         log("Russian Commander is going to spawn CAP in zone [" .. spawnZone .. "] instead of the default spot.")
         spawn:SpawnInZone(spawnZone)
     else
+        log("Russian Commander is spawning")
         spawn:Spawn()
     end
 end
