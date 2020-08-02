@@ -489,7 +489,7 @@ function activateLogi(spawn)
         table.insert(ctld.logisticUnits, static.name)
         ctld.activatePickupZone(spawn[4])
 
-        if not hasRadioBeacon[spawn[4]] == true then 
+        if not hasRadioBeacon[spawn[4]] == true then
             log("Spawning radio beacon for " .. spawn[4])
             ctld.createRadioBeaconAtZone(spawn[4], "blue", 1440, spawn[4])
             hasRadioBeacon[spawn[4]] = true
@@ -547,10 +547,17 @@ end
 
 for i,v in ipairs(allcaps) do
     v:OnSpawnGroup(function(SpawnedGroup)
+        log("[DEBUG2] Caught spawnned CAP")
         AddRussianTheaterCAP(SpawnedGroup)
         GameStats:increment("caps")
     end)
 end
+
+RussianCarrierFlight:OnSpawnGroup(function(SpawnedGroup)
+    log("[DEBUG2] Caught spawnned Su-33 CAP")
+    AddRussianTheaterCAP(SpawnedGroup)
+    GameStats:increment("caps")
+end)
 
 activeBlueXports = {}
 
