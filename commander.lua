@@ -148,9 +148,9 @@ end
 spawn_cap = function(spawn, allow_randomize)
     local stats = GameStats:get()
     local allow_randomize = allow_randomize or false
-    log("[DEBUG] Nominal CAP count for " .. tostring(get_player_count()) .. " players is " .. stats.caps.nominal)
+    log("[DEBUG] Nominal CAP count for " .. tostring(get_player_count()) .. " players is " .. stats.caps.nominal .. "; currently at " .. stats.caps.alive .. " (trying to spawn " .. spawn.MEName .. ")")
     if stats.caps.alive >= stats.caps.nominal then
-        log("Russian Commander declined to spawn CAP because " .. stats.caps.alive .. " exceeds or meets the max value of " .. stats.caps.nominal)
+        log("Russian Commander declined to spawn " .. spawn.MEName .. " because " .. stats.caps.alive .. " exceeds or meets the max value of " .. stats.caps.nominal)
         return
     end
     if (math.random() > 0.5 and allow_randomize) then
