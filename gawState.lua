@@ -92,7 +92,7 @@ game_stats = {
         subtype = "CommsArray",
     },
     caps = {
-        alive = 0,
+        alive = 2, -- modified because we actually start with a single Su-33 group alive and a delayed-start Su-27 group
         nominal = 9,
         tbl = game_state["CAP"],
     },
