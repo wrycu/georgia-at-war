@@ -322,7 +322,7 @@ RussianTheaterSA10Spawn = { Spawner("SA10"), "SA10" }
 RussianTheaterSA6Spawn = { Spawner("SA6"), "SA6" }
 RussianTheaterEWRSpawn = { Spawner("EWR"), "EWR" }
 RussianTheaterC2Spawn = { Spawner("C2"), "C2" }
-RussianTheaterAWACSSpawn = Spawner("A50")
+RussianTheaterAWACSSpawn = Spawner("AWACS A50")
 RussianTheaterAWACSPatrol = Spawner("SU27-RUSAWACS Patrol")
 
 RussianTheaterAWACSSpawn:OnSpawnGroup(function(grp)
@@ -502,6 +502,8 @@ RussianTheaterAWACSSpawn:OnSpawnGroup(function(SpawnedGroup)
     AddObjective("AWACS", getMarkerId())(SpawnedGroup, "AWACS", callsign)
     RussianTheaterAWACSPatrol:Spawn()
     GameStats:increment("awacs")
+    redIADS:addEarlyWarningRadar(SpawnedGroup:getName() .. " unit1")
+    log("[DEUBG8] Added AWACS " .. SpawnedGroup:getName() .. " as EWR, exists: " .. tostring(SpawnedGroup:isExist()))
 end)
 
 RussianTheaterSA6Spawn[1]:OnSpawnGroup(function(SpawnedGroup)
@@ -509,6 +511,7 @@ RussianTheaterSA6Spawn[1]:OnSpawnGroup(function(SpawnedGroup)
     AddObjective("StrategicSAM", getMarkerId())(SpawnedGroup, RussianTheaterSA6Spawn[2], callsign)
     buildCheckSAMEvent(SpawnedGroup, callsign)
     GameStats:increment("sam")
+    redIADS:addSAMSite(SpawnedGroup:getName())
 end)
 
 RussianTheaterSA10Spawn[1]:OnSpawnGroup(function(SpawnedGroup)
@@ -516,6 +519,7 @@ RussianTheaterSA10Spawn[1]:OnSpawnGroup(function(SpawnedGroup)
     AddObjective("StrategicSAM", getMarkerId())(SpawnedGroup, RussianTheaterSA10Spawn[2], callsign)
     buildCheckSAMEvent(SpawnedGroup, callsign)
     GameStats:increment("sam")
+    redIADS:addSAMSite(SpawnedGroup:getName())
 end)
 
 RussianTheaterEWRSpawn[1]:OnSpawnGroup(function(SpawnedGroup)
@@ -523,6 +527,13 @@ RussianTheaterEWRSpawn[1]:OnSpawnGroup(function(SpawnedGroup)
     AddObjective("EWR", getMarkerId())(SpawnedGroup, RussianTheaterEWRSpawn[2], callsign)
     buildCheckEWREvent(SpawnedGroup, callsign)
     GameStats:increment("ewr")
+    for index, data in ipairs(SpawnedGroup:getUnits()) do
+        if SpawnedGroup:getUnit(index):getTypeName() == "1L13 EWR" then
+            log("[DEBUG4.5] Adding " .. SpawnedGroup:getUnit(index):getName() .. " as EWR")
+            redIADS:addEarlyWarningRadar(SpawnedGroup:getUnit(index):getName())
+        end
+    end
+    log("[DEBUG5] successfully added " .. SpawnedGroup:getName() .. " to IADS - exists: " .. tostring(SpawnedGroup:isExist()))
 end)
 
 RussianTheaterC2Spawn[1]:OnSpawnGroup(function(SpawnedGroup)
