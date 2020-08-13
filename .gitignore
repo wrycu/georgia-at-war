@@ -2,3 +2,5 @@ state.json
 .vscode/
 *.swp
 *.swo
+venv/
+setup/config.ini

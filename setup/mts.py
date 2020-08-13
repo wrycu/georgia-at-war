@@ -11,6 +11,7 @@ import datetime
 import argparse
 import subprocess
 from metar import Metar
+from configparser import SafeConfigParser
 
 times = {
     'morning': 21600,  # 06:00
@@ -18,28 +19,14 @@ times = {
     'evening': 82800,  # 23:00
 }
 
-websocketReporter = "C:\\Users\\hoggit\\DCSUTILS\\Server_Scripts\\WebhookAlerter\\webhookAlerter.ps1"
-
-parser = argparse.ArgumentParser(description="Split your DCS mission into different times, with weather from avwx")
-parser.add_argument('-m', '--mission', required=True, help="The mission you want to split")
-parser.add_argument('-i', '--icao', help="The ICAO designation of the airport to get weather for")
-parser.add_argument('--metarout', help="Output the METAR string to this file. Ignored if not set")
-parser.add_argument('-f', '--fallback', action='store_true',
-                    help="Add this if you want to fall back to a default weather if no ICAO is found.\
-                        If not specified, and no ICAO weather is found, we'll exit without doing anything")
-parser.add_argument('-o', '--output', default=None, help="The directory to output the split missions to. Defaults to the current directory.")
-parser.add_argument('-d', '--debug', action='store_true', help="More debug output")
-parser.add_argument('-A', '--avwx_auth', help="Authentication to avwx.rest")
-
-args = parser.parse_args()
-is_debug = args.debug
 
 def debug(str):
-    if is_debug:
-        log(str)
+    log(str)
+
 
 def log(str):
     print(str)
+
 
 def change_mission_data(misFile, fn, descr, time, wx):
     today = datetime.datetime.now()
@@ -49,6 +36,7 @@ def change_mission_data(misFile, fn, descr, time, wx):
     date_regex_year = re.compile("^\s+\[\"Year")
     wind_rgx = re.compile("^\s{16}\[\"speed")
     wind_dir_rgx = re.compile("^\s{16}\[\"dir")
+    load_next_miz_rgx = re.compile(r"^(.*a_load_mission\(\\\")(liberation.*.miz)(\\\"\).*)")
     if descr == 'morning':
         next_time = 'afternoon'
     elif descr == 'afternoon':
@@ -97,9 +85,11 @@ def change_mission_data(misFile, fn, descr, time, wx):
                     line = "         [\"Day\"] = {},\n".format(today.day)
                 if date_regex_month.match(line):
                     line = "         [\"Month\"] = {},\n".format(today.month)
+                if load_next_miz_rgx.match(line):
+                    line = load_next_miz_rgx.sub(r'\1{}\3'.format(os.path.basename(next_file)), line)
                 tf.write(line)
-
     return this_file
+
 
 def cloud_map(sky):
     """
@@ -123,12 +113,14 @@ def cloud_map(sky):
     }
     return list(map(lambda s: (cloud_map[s[0]], s[1].value() if s[1] else 0), sky))
 
+
 def thickest_clouds(cloud_thickness_and_base_list):
     """
     Given a list of tuples indicated cloud thickness and base, return the tuple
     with the thickest clouds
     """
     return max(cloud_thickness_and_base_list, key=lambda c: c[0])
+
 
 def get_cloud_detail(sky):
     """
@@ -147,6 +139,7 @@ def get_cloud_detail(sky):
             "base": thickest[1]
             }
 
+
 def wind_speed_in_mps(wind):
     """
     Given a wind_speed object from a Metar, return the windspeed in meters per second format.
@@ -160,34 +153,26 @@ def wind_speed_in_mps(wind):
     return wind.value()
 
 
-def handle_mission(fn, dest, weatherconf, fallback):
-    def check_fallback():
-        if not fallback:
-            print("Fallback flag not specified, quitting.")
-            sys.exit(1)
-        else:
-            print("Falling back to defaults")
-
-    if os.path.exists(fn):
-        path = os.path.abspath(fn)
+def handle_mission(msn_file, dst_path, weatherconf):
+    if os.path.exists(msn_file):
+        path = os.path.abspath(msn_file)
         debug("path: {}".format(path))
         basedir = os.path.dirname(path)
         debug("basedir: {}".format(basedir))
-        targetdir = "{}/.tmp".format(basedir)
+        targetdir = os.path.join(basedir, '.tmp')
         debug("targetdir: {}".format(targetdir))
         debug("Making tmp dir: {}".format(targetdir))
         if os.path.exists(targetdir):
             shutil.rmtree(targetdir)
         os.makedirs(targetdir)
 
-        debug("Extracting zip: {}".format(fn))
-        zip_ref = zipfile.ZipFile(fn, 'r')
+        debug("Extracting zip: {}".format(msn_file))
+        zip_ref = zipfile.ZipFile(msn_file, 'r')
         zip_ref.extractall(targetdir)
 
-        misfile = "{}/mission".format(targetdir)
+        misfile = os.path.join(targetdir, "mission")
 
         # Get WX
-
         wx = {
             "temp": 23,
             "wind_speed": 4,
@@ -199,13 +184,15 @@ def handle_mission(fn, dest, weatherconf, fallback):
             "pressure": 760
         }
         try:
-            authHeader = {"Authorization": weatherconf.authToken}
-            wx_request = requests.get("https://avwx.rest/api/metar/" + weatherconf.icao.upper(), headers=authHeader, timeout = 5)
+            wx_request = requests.get(
+                "https://avwx.rest/api/metar/" + weatherconf.icao.upper(),
+                headers={"Authorization": weatherconf.authToken},
+                timeout=5,
+            )
             if wx_request.status_code == 200:
                 try:
                     wx_json = wx_request.json()
                     obs = Metar.Metar(wx_json['raw'], strict=False)
-                    #obs = Metar.Metar("URKK 211400Z 33004MPS 290V360 CAVOK 30/18 Q1011 R23L/CLRD70 NOSIG RMK QFE755")
                     precip = 0
                     if obs.weather:
                         if obs.weather[0][2] == 'RA':
@@ -219,8 +206,8 @@ def handle_mission(fn, dest, weatherconf, fallback):
                         wx['wind_dir'] = (obs.wind_dir.value() + 180) % 360
                     if obs.sky:
                         clouds = get_cloud_detail(obs.sky)
-                        wx['cloud_base'] = clouds["base"] * 0.3048 #METAR is Feet, Miz file expects meters
-                        wx['cloud_height'] = 1800  * 0.3048 #METAR is Feet, Miz file expects meters
+                        wx['cloud_base'] = clouds["base"] * 0.3048  # METAR is Feet, Miz file expects meters
+                        wx['cloud_height'] = 1800 * 0.3048          # METAR is Feet, Miz file expects meters
                         wx['cloud_density'] = clouds["thickness"]
                     else:
                         wx['cloud_base'] = 1800
@@ -232,41 +219,25 @@ def handle_mission(fn, dest, weatherconf, fallback):
                     print("----------------")
                     print(obs.code)
                     print("----------------")
-                    if args.metarout:
-                        metarfile = args.metarout
-                        debug("metar outfile arg provided: {}".format(metarfile))
-                        abs_path = os.path.abspath(metarfile)
-                        path = os.path.dirname(abs_path)
-                        print("path {}".format(path))
-                        if not os.path.exists(path):
-                            os.makedirs(path)
-                        with open(abs_path, 'w', encoding='utf-8') as mf:
-                            mf.write(obs.code)
                 except Exception as e:
                     print(e)
                     print("FAILED TO GET DYNAMIC WEATHER")
-                    subprocess.run(["powershell.exe", websocketReporter, "\"error\"", "\"mission splitter\"" , "\"FAILED TO GET DYNAMIC WEATHER\""])
-                    check_fallback()
             else:
                 print(wx_request)
                 print("FAILED TO GET DYNAMIC WEATHER. METAR API UNAVAILABLE")
-                subprocess.run(["powershell.exe", websocketReporter, "\"error\"", "\"mission splitter\"" , "\"FAILED TO GET DYNAMIC WEATHER. METAR API UNAVAILABLE\""])
-                check_fallback()
         except Exception as e:
             print(e)
-            print("Could not contact avwx for weather." )
-            subprocess.run(["powershell.exe", websocketReporter, "\"error\"", "\"mission splitter\"" , "\"Could not contact avwx for weather.\""])
-            check_fallback()
+            print("Could not contact avwx for weather.")
 
         new_files = []
         for descr, time in times.items():
-            new_mis = change_mission_data(misfile, fn, descr, time, wx)
+            new_mis = change_mission_data(misfile, msn_file, descr, time, wx)
             debug("basedir: " + basedir)
-            debug("fn: " + fn[:-4])
+            debug("fn: " + msn_file[:-4])
             debug("descr: " + descr)
             new_file = "{}/{}_{}".format(
                 basedir,
-                fn[:-4],
+                os.path.basename(msn_file)[:-4],
                 descr
             )
             debug("targetdir " + targetdir)
@@ -276,7 +247,7 @@ def handle_mission(fn, dest, weatherconf, fallback):
             shutil.make_archive(new_file, 'zip', new_file)
             new_files.append(new_file)
 
-        new_dir = "{}/{}".format(basedir, fn)[:-4]
+        new_dir = os.path.join(basedir, os.path.basename(msn_file)[:-4])
         debug("New dir: " + new_dir)
         if os.path.exists(new_dir) and os.path.isdir(new_dir):
             shutil.rmtree(new_dir)
@@ -285,12 +256,12 @@ def handle_mission(fn, dest, weatherconf, fallback):
         for new_file in new_files:
             filename = new_file+".zip"
             debug("new_file: " + new_file)
-            debug("dest: " + dest)
+            debug("dest: " + dst_path)
             try:
-                shutil.move(filename, os.path.join(dest, os.path.basename(new_file)+".miz"))
+                shutil.move(filename, os.path.join(dst_path, os.path.basename(new_file) + ".miz"))
                 print("Created {}".format(os.path.basename(new_file)+".miz"))
             except Exception as e:
-                print("Couldn't move {} to {} . Skipping".format(filename, os.path.join(dest, os.path.basename(new_file)+".miz")))
+                print("Couldn't move {} to {} . Skipping".format(filename, os.path.join(dst_path, os.path.basename(new_file) + ".miz")))
                 print(e)
             debug("Cleaning up zip: " + new_file)
             shutil.rmtree(new_file)
@@ -301,19 +272,30 @@ def handle_mission(fn, dest, weatherconf, fallback):
         debug("Cleaning up " + new_dir)
         shutil.rmtree(new_dir)
     else:
-        print("can't find {}".format(fn))
+        print("can't find {}".format(msn_file))
+
 
 class WeatherConfig:
     def __init__(self, icao, authToken):
         self.icao = icao
         self.authToken = authToken
 
-file = args.mission
-icao = args.icao
-avwx_auth = args.avwx_auth
-weatherconf = WeatherConfig(icao, avwx_auth)
-dest = args.output
-fallback = args.fallback
-debug("args: " + str(args))
-handle_mission(file, dest, weatherconf, fallback)
+
+parser = SafeConfigParser()
+parser.read('config.ini')
+conf = {
+    'api_token': parser.get('wx', 'token'),
+    'mission_file': parser.get('script', 'mission'),
+    'output_dir': parser.get('script', 'output'),
+    'icao': parser.get('script', 'icao'),
+}
+
+handle_mission(
+    conf['mission_file'],
+    conf['output_dir'],
+    WeatherConfig(
+        conf['icao'],
+        conf['api_token']
+    ),
+)
 print("Done.")

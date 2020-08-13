@@ -4,6 +4,10 @@ local ctld_config = require("ctld_config")
 
 local statefile = io.open(lfs.writedir() .. "Scripts\\GAW\\state.json", 'r')
 
+-- log when we started up so we can send warning messages & schedule the restart
+--game_state["startup_time"] = os.date("%H:%M:%S", os.time())
+game_state["startup_time"] = os.time()
+
 -- Enable slotblock
 trigger.action.setUserFlag("SSB",100)
 if statefile then
@@ -316,7 +320,7 @@ else
             RussianTheaterSA10Spawn[1]:SpawnInZone(zone .. zone_index)
         end
 
-        local zone_index = math.random(8)
+        local zone_index = math.random(9)
         local zone = "NorthSA10Zone"
         RussianTheaterEWRSpawn[1]:SpawnInZone(zone .. zone_index)
 

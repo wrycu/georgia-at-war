@@ -2,6 +2,7 @@
 primaryFARPS = {"SW Warehouse", "NW Warehouse", "SE Warehouse", "NE Warehouse", "MK Warehouse"}
 primaryAirfields = {"Maykop-Khanskaya"}
 game_state = {
+    ["startup_time"] = -1,    -- represents the actual time the mission started - used because in-game time is suspended with no players
     ["last_launched_time"] = 0,
     ["CurrentTheater"] = "Russian Theater",
     ["last_cap_spawn"] = 0,
@@ -60,7 +61,7 @@ game_stats = {
     },
     sam = {
         alive = 0,
-        nominal = 6,
+        nominal = 4,
         tbl = game_state["StrategicSAM"]
     },
     ewr = {
