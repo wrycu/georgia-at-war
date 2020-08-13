@@ -449,6 +449,10 @@ end
 
 -- Airfield CAS Spawns
 RussianTheaterCASSpawn = Spawner("Su25T-CASGroup")
+RussianTheater_Su24_CASSpawn = Spawner("Su24-CASGroup")
+RussianTheater_L39_CASSpawn = Spawner("L39-CASGroup")
+
+cas_spawns = {RussianTheaterCASSpawn, RussianTheater_Su24_CASSpawn, RussianTheater_L39_CASSpawn}
 
 --Russian Carrier Flight
 RussianCarrierFlight = Spawner("SU-33-2shipCARRIER")
@@ -495,6 +499,11 @@ function activateLogi(spawn)
             hasRadioBeacon[spawn[4]] = true
         end
     end
+end
+
+function spawn_CAS()
+    log("Spawned CAS Groups...")
+    randomFromList(cas_spawns):Spawn()
 end
 
 RussianTheaterAWACSSpawn:OnSpawnGroup(function(SpawnedGroup)

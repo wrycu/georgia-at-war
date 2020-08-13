@@ -406,10 +406,7 @@ mist.scheduleFunction(function()
     RussianTheaterAWACSSpawn:Spawn()
 end, {}, timer.getTime() + 10)
 
-mist.scheduleFunction(function()
-    RussianTheaterCASSpawn:Spawn()
-    log("Spawned CAS Groups...")
-end, {}, timer.getTime() + 10, 1000)
+mist.scheduleFunction(spawn_CAS, {}, timer.getTime() + 10, 1000)
 -- Spawn enemy carrier CAP
 mist.scheduleFunction(spawn_cap, {RussianCarrierFlight}, timer.getTime() + 10, 900)
 -- Kick off the commanders
