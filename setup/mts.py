@@ -11,7 +11,8 @@ import datetime
 import argparse
 import subprocess
 from metar import Metar
-from configparser import SafeConfigParser
+from configparser import ConfigParser
+import random
 
 times = {
     'morning': 21600,  # 06:00
@@ -63,6 +64,8 @@ def change_mission_data(misFile, fn, descr, time, wx):
                     line = line.replace(fn, next_file)
                 if not in_fog and '["thickness"]' in line:
                     line = '            ["thickness"] = {},\n'.format(wx['cloud_height'])
+                if '["thickness"]' in line and wx['preset']:
+                    line += f'\n\t\t\t["preset"] = "{wx["preset"]}",\n'
                 if not in_fog and '["density"]' in line:
                     line = '            ["density"] = {},\n'.format(wx['cloud_density'])
                 if '["base"]' in line:
@@ -153,6 +156,85 @@ def wind_speed_in_mps(wind):
     return wind.value()
 
 
+def map_clouds_to_preset(clouds, rain):
+    """
+    :param clouds:
+        Cloud cover as a number, from 0 to 10 (with 10 being overcast)
+    :param rain:
+        Rain amount. will be >0 if it's raining
+    :return:
+    """
+    presets = {
+        'clear': [
+            None,     # None
+            'Preset1',  # Light Scattered - 1
+            'Preset2',  # Light Scattered - 2
+        ],
+        'few': [
+            'Preset3',  # High Scattered - 1
+            'Preset4',  # High Scattered - 2
+            'Preset8',  # High Scattered - 3
+        ],
+        'scattered': [
+            'Preset5',  # Scattered - 1
+            'Preset6',  # Scattered - 2
+            'Preset7',  # Scattered - 3
+            'Preset9',  # Scattered - 4
+            'Preset10',  # Scattered - 5
+            'Preset11',  # Scattered - 6
+            'Preset12',  # Scattered - 7
+        ],
+        'broken': [
+            'Preset13',  # Broken - 1
+            'Preset14',  # Broken - 2
+            'Preset15',  # Broken - 3
+            'Preset16',  # Broken - 4
+            'Preset17',  # Broken - 5
+            'Preset18',  # Broken - 6
+            'Preset19',  # Broken - 7
+            'Preset20',  # Broken - 8
+        ],
+        'overcast': [
+            'Preset21',  # Overcast - 1
+            'Preset22',  # Overcast - 2
+            'Preset23',  # Overcast - 3
+            'Preset24',  # Overcast - 4
+            'Preset25',  # Overcast - 5
+            'Preset26',  # Overcast - 6
+            'Preset27',  # Overcast - 7
+        ],
+        'rain': [
+            'RainyPreset1',  # Overcast and Rain - 1
+            'RainyPreset2',  # Overcast and Rain - 2
+            'RainyPreset3',  # Overcast and Rain - 3
+        ],
+    }
+
+    debug("Determining preset - input data is " + str(clouds) + " " + str(rain))
+
+    preset = None
+    if rain:
+        # rain
+        preset = presets['rain'][random.randint(0, len(presets['rain']) - 1)]
+    elif clouds == 0:
+        # clear - randomly select from none and light scattered
+        preset = presets['clear'][random.randint(0, len(presets['clear']) - 1)]
+    elif clouds == 2:
+        # few - randomly select from high scattered
+        preset = presets['few'][random.randint(0, len(presets['few']) - 1)]
+    elif clouds == 6:
+        # scattered - randomly select from scattered
+        preset = presets['scattered'][random.randint(0, len(presets['scattered']) - 1)]
+    elif clouds == 8:
+        # broken - randomly select from broken
+        preset = presets['broken'][random.randint(0, len(presets['broken']) - 1)]
+    elif clouds == 10:
+        # overcast - randomly select from overcast
+        preset = presets['overcast'][random.randint(0, len(presets['overcast']) - 1)]
+    debug("Picked preset " + str(preset))
+    return preset
+
+
 def handle_mission(msn_file, dst_path, weatherconf):
     if os.path.exists(msn_file):
         path = os.path.abspath(msn_file)
@@ -181,7 +263,8 @@ def handle_mission(msn_file, dst_path, weatherconf):
             "cloud_height": 1800,
             "cloud_density": 5,
             "precip": 0,
-            "pressure": 760
+            "pressure": 760,
+            "preset": None,
         }
         try:
             wx_request = requests.get(
@@ -203,9 +286,11 @@ def handle_mission(msn_file, dst_path, weatherconf):
                     wx['temp'] = obs.temp.value()
                     wx['wind_speed'] = wind_speed_in_mps(obs.wind_speed)
                     if obs.wind_dir:
+                        # DCS uses wind in the direction it's going instead of where it's coming from
                         wx['wind_dir'] = (obs.wind_dir.value() + 180) % 360
                     if obs.sky:
                         clouds = get_cloud_detail(obs.sky)
+                        wx['preset'] = map_clouds_to_preset(clouds['thickness'], precip)
                         wx['cloud_base'] = clouds["base"] * 0.3048  # METAR is Feet, Miz file expects meters
                         wx['cloud_height'] = 1800 * 0.3048          # METAR is Feet, Miz file expects meters
                         wx['cloud_density'] = clouds["thickness"]
@@ -281,7 +366,7 @@ class WeatherConfig:
         self.authToken = authToken
 
 
-parser = SafeConfigParser()
+parser = ConfigParser()
 parser.read('config.ini')
 conf = {
     'api_token': parser.get('wx', 'token'),
@@ -289,6 +374,8 @@ conf = {
     'output_dir': parser.get('script', 'output'),
     'icao': parser.get('script', 'icao'),
 }
+
+random.seed()
 
 handle_mission(
     conf['mission_file'],
